@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import { useTheme } from '@/hooks/useTheme';
 import { useToast } from '@/components/Toast';
@@ -154,16 +154,15 @@ export default function DashboardPage() {
     const [searchQuery, setSearchQuery] = useState('');
 
     // Grab OAuth token from URL (GitHub redirect)
-    const searchParams = useSearchParams();
     useEffect(() => {
-        const urlToken = searchParams.get('token');
+        const params = new URLSearchParams(window.location.search);
+        const urlToken = params.get('token');
         if (urlToken) {
             localStorage.setItem('codesync_token', urlToken);
-            // Clean token from URL and reload
             window.history.replaceState({}, '', '/dashboard');
             window.location.reload();
         }
-    }, [searchParams]);
+    }, []);
 
     useEffect(() => {
         if (authLoading) return; // Wait for auth to resolve
