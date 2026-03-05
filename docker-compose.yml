@@ -1,0 +1,79 @@
+# ═══════════════════════════════════
+# CodeSync — Docker Compose
+# ═══════════════════════════════════
+
+services:
+  # ── PostgreSQL ──
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: codesync
+      POSTGRES_PASSWORD: codesync_secret
+      POSTGRES_DB: codesync
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U codesync" ]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # ── Redis ──
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: [ "CMD", "redis-cli", "ping" ]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  # ── Server (API + WebSocket) ──
+  server:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    ports:
+      - "4000:4000"
+    environment:
+      DATABASE_URL: postgresql://codesync:codesync_secret@postgres:5432/codesync
+      JWT_SECRET: your-production-jwt-secret-change-me
+      NODE_ENV: production
+      SERVER_PORT: "4000"
+      SERVER_URL: http://localhost:4000
+      CLIENT_URL: http://localhost:3000
+      REDIS_URL: redis://redis:6379
+      GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID:-}
+      GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET:-}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: >
+      sh -c "npx prisma db push --schema=src/prisma/schema.prisma --skip-generate &&
+             node dist/index.js"
+
+  # ── Client (Next.js) ──
+  client:
+    build:
+      context: ./client
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: http://localhost:4000
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      HOSTNAME: "0.0.0.0"
+    depends_on:
+      - server
+
+volumes:
+  pgdata:

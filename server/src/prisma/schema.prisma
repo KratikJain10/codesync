@@ -1,0 +1,171 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  username  String   @unique
+  password  String
+  avatar    String?
+  githubId  String?  @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  ownedRooms  Room[]       @relation("RoomOwner")
+  memberships RoomMember[]
+  messages    Message[]
+  activities  Activity[]   @relation("UserActivities")
+  snippets    Snippet[]
+  comments    CodeComment[]
+  sessions    Session[]
+}
+
+model Room {
+  id        String   @id @default(uuid())
+  name      String
+  slug      String   @unique
+  language  String   @default("javascript")
+  isPublic  Boolean  @default(true)
+  password  String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  ownerId String
+  owner   User   @relation("RoomOwner", fields: [ownerId], references: [id])
+
+  members    RoomMember[]
+  files      File[]
+  messages   Message[]
+  activities Activity[]
+
+  @@index([slug])
+  @@index([ownerId])
+}
+
+enum RoomRole {
+  OWNER
+  EDITOR
+  VIEWER
+}
+
+model RoomMember {
+  id     String   @id @default(uuid())
+  role   RoomRole @default(EDITOR)
+  joinedAt DateTime @default(now())
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id])
+  roomId String
+  room   Room   @relation(fields: [roomId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, roomId])
+}
+
+model File {
+  id        String   @id @default(uuid())
+  name      String
+  content   String   @default("")
+  language  String   @default("plaintext")
+  order     Int      @default(0)
+  isFolder  Boolean  @default(false)
+  path      String   @default("/")
+  parentId  String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  roomId String
+  room   Room   @relation(fields: [roomId], references: [id], onDelete: Cascade)
+
+  parent   File?  @relation("FileTree", fields: [parentId], references: [id])
+  children File[] @relation("FileTree")
+
+  versions FileVersion[]
+  comments CodeComment[]
+
+  @@unique([roomId, name, parentId])
+  @@index([roomId])
+  @@index([parentId])
+}
+
+model FileVersion {
+  id        String   @id @default(uuid())
+  content   String
+  label     String   @default("Auto-save")
+  createdAt DateTime @default(now())
+
+  fileId String
+  file   File   @relation(fields: [fileId], references: [id], onDelete: Cascade)
+}
+
+model Message {
+  id        String   @id @default(uuid())
+  content   String
+  createdAt DateTime @default(now())
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id])
+  roomId String
+  room   Room   @relation(fields: [roomId], references: [id], onDelete: Cascade)
+}
+
+model Activity {
+  id        String   @id @default(uuid())
+  action    String   // "file_created", "file_edited", "member_joined", "room_forked", "code_executed"
+  details   String?  // JSON string with extra info
+  createdAt DateTime @default(now())
+
+  userId String
+  user   User   @relation("UserActivities", fields: [userId], references: [id])
+  roomId String
+  room   Room   @relation(fields: [roomId], references: [id], onDelete: Cascade)
+}
+
+model Snippet {
+  id        String   @id @default(uuid())
+  title     String
+  code      String
+  language  String   @default("javascript")
+  tags      String   @default("")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id])
+}
+
+model CodeComment {
+  id        String   @id @default(uuid())
+  content   String
+  line      Int
+  resolved  Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id])
+  fileId String
+  file   File   @relation(fields: [fileId], references: [id], onDelete: Cascade)
+}
+
+model Session {
+  id        String   @id @default(uuid())
+  token     String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  userAgent String?
+  ip        String?
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([token])
+  @@index([userId])
+}

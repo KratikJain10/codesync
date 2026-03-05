@@ -1,0 +1,33 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+.next/
+
+# Environment files
+.env
+.env.local
+!.env.example
+
+# IDE
+.vscode/
+.idea/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+
+# Docker volumes
+postgres-data/
+
+# Testing
+coverage/
+
+# Misc
+*.tgz
+.gemini/
